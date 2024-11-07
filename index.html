@@ -30,17 +30,19 @@
 </head>
 <body>
 <div id="loading">Loading the menu...</div>
-<iframe id="pdfViewer" src="https://docs.google.com/viewer?url=https://rubencodeforges.github.io/soho-pizza/Soho_MenuDR.pdf&embedded=true" title="Pizza Menu PDF"></iframe>
+<iframe id="pdfViewer" title="Pizza Menu PDF"></iframe>
 
 <script>
     const iframe = document.getElementById('pdfViewer');
     const loadingMessage = document.getElementById('loading');
     let retryCount = 0;
     const maxRetries = 3;
+    const retryDelay = 2000; // 2 seconds delay between retries
 
     function loadPDF() {
-        // Attempt to load the iframe
-        iframe.src = `https://docs.google.com/viewer?url=https://rubencodeforges.github.io/soho-pizza/Soho_MenuDR.pdf&embedded=true`;
+        // Add a timestamp to the URL to prevent caching
+        const timestamp = new Date().getTime();
+        iframe.src = `https://docs.google.com/viewer?url=https://rubencodeforges.github.io/soho-pizza/Soho_MenuDR.pdf&embedded=true&cacheBust=${timestamp}`;
         iframe.style.display = 'none';
         loadingMessage.style.display = 'block';
     }
@@ -55,7 +57,7 @@
         retryCount++;
         if (retryCount <= maxRetries) {
             console.log(`Retry attempt ${retryCount}...`);
-            loadPDF();
+            setTimeout(loadPDF, retryDelay); // Retry after a delay
         } else {
             loadingMessage.innerText = "Failed to load the menu. Please try again later.";
         }
