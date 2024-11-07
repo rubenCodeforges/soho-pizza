@@ -38,6 +38,7 @@
     let retryCount = 0;
     const maxRetries = 3;
     const retryDelay = 2000; // 2 seconds delay between retries
+    const loadTimeout = 3000; // Check if iframe is blank after 3 seconds
 
     function loadPDF() {
         // Add a timestamp to the URL to prevent caching
@@ -45,6 +46,16 @@
         iframe.src = `https://docs.google.com/viewer?url=https://rubencodeforges.github.io/soho-pizza/Soho_MenuDR.pdf&embedded=true&cacheBust=${timestamp}`;
         iframe.style.display = 'none';
         loadingMessage.style.display = 'block';
+
+        // Check if iframe is blank after `loadTimeout`
+        setTimeout(checkIfLoaded, loadTimeout);
+    }
+
+    function checkIfLoaded() {
+        // If iframe is still hidden after timeout, retry loading
+        if (iframe.style.display === 'none') {
+            retryLoad();
+        }
     }
 
     function onLoadSuccess() {
@@ -53,7 +64,7 @@
         iframe.style.display = 'block';
     }
 
-    function onLoadError() {
+    function retryLoad() {
         retryCount++;
         if (retryCount <= maxRetries) {
             console.log(`Retry attempt ${retryCount}...`);
@@ -63,9 +74,8 @@
         }
     }
 
-    // Event handlers for load success and error
+    // Event handler for load success
     iframe.onload = onLoadSuccess;
-    iframe.onerror = onLoadError;
 
     // Initial load
     loadPDF();
