@@ -17,7 +17,10 @@
             overflow: hidden;
         }
         #loading {
-            font-size: 1.5em;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 1.2em;
             color: #555;
         }
         iframe {
@@ -29,7 +32,9 @@
     </style>
 </head>
 <body>
-<div id="loading">Loading the menu...</div>
+<div id="loading">
+    <img src="Pizza%20Loader.gif" width="150px" height="150px" alt="Loading...">
+</div>
 <iframe id="pdfViewer" title="Pizza Menu PDF"></iframe>
 
 <script>
