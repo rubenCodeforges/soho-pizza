@@ -5,31 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pizza Menu</title>
     <style>
-        /* Style to center the PDF and ensure it fits well on all screen sizes */
-        body {
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        /* Remove margins and set full viewport for iframe */
+        body, html {
             margin: 0;
-            height: 100vh;
-            font-family: Arial, sans-serif;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden; /* Prevent scrollbars */
         }
         iframe {
-            width: 90%;
-            height: 90vh;
+            width: 100%;
+            height: 100vh; /* Full viewport height */
             border: none;
-        }
-        /* Ensure smaller devices display the PDF nicely */
-        @media (max-width: 768px) {
-            iframe {
-                width: 100%;
-                height: 80vh;
-            }
         }
     </style>
 </head>
 <body>
-<!-- Embed the PDF in an iframe for direct viewing -->
+<!-- Embed the PDF in an iframe for full width display -->
 <iframe src="./grin!Soho_MenuDR.pdf" title="Pizza Menu PDF"></iframe>
 </body>
 </html>
