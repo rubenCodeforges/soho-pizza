@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pizza Menu</title>
+    <style>
+        /* Style to center the PDF and ensure it fits well on all screen sizes */
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        iframe {
+            width: 90%;
+            height: 90vh;
+            border: none;
+        }
+        /* Ensure smaller devices display the PDF nicely */
+        @media (max-width: 768px) {
+            iframe {
+                width: 100%;
+                height: 80vh;
+            }
+        }
+    </style>
+</head>
+<body>
+<!-- Embed the PDF in an iframe for direct viewing -->
+<iframe src="./grin!Soho_MenuDR.pdf" title="Pizza Menu PDF"></iframe>
+</body>
+</html>
