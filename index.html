@@ -1,89 +1,374 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pizza Menu</title>
+    <meta charset="UTF-8" />
+    <title>Catch the Delivery Guy - Mini Game</title>
     <style>
-        body, html {
+        body {
             margin: 0;
-            padding: 0;
-            height: 100%;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: Arial, sans-serif;
-            overflow: hidden;
+            background: #000;
         }
-        #loading {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            font-size: 1.2em;
-            color: #555;
-        }
-        iframe {
-            width: 100%;
-            height: 100vh;
-            border: none;
-            display: none;
+        canvas {
+            display: block;
+            margin: 0 auto;
         }
     </style>
 </head>
 <body>
-<div id="loading">
-    <img src="Pizza%20Loader.gif" width="150px" height="150px" alt="Loading...">
-</div>
-<iframe id="pdfViewer" title="Pizza Menu PDF"></iframe>
 
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
 <script>
-    const iframe = document.getElementById('pdfViewer');
-    const loadingMessage = document.getElementById('loading');
-    let retryCount = 0;
-    const maxRetries = 3;
-    const retryDelay = 2000; // 2 seconds delay between retries
-    const loadTimeout = 3000; // Check if iframe is blank after 3 seconds
+    // Phaser 3 simple starter project for "Catch the Delivery Guy"
+    // Uses your spritesheets and bg music
 
-    function loadPDF() {
-        // Add a timestamp to the URL to prevent caching
-        const timestamp = new Date().getTime();
-        iframe.src = `https://docs.google.com/viewer?url=https://rubencodeforges.github.io/soho-pizza/Soho_MenuDR.pdf&embedded=true&cacheBust=${timestamp}`;
-        iframe.style.display = 'none';
-        loadingMessage.style.display = 'block';
+    const config = {
+        type: Phaser.AUTO,
+        width: 640,
+        height: 360,
+        pixelArt: true,
+        backgroundColor: '#000000',
+        physics: {
+            default: 'arcade',
+            arcade: {
+                gravity: { y: 0 },
+                debug: false
+            }
+        },
+        scene: {
+            preload: preload,
+            create: create,
+            update: update
+        }
+    };
 
-        // Check if iframe is blank after `loadTimeout`
-        setTimeout(checkIfLoaded, loadTimeout);
+    const game = new Phaser.Game(config);
+
+    let chef;
+    let deliveryGuy;
+    let pizzaBoxes;
+    let cursors;
+    let spaceKey;
+    let music;
+    let score = 0;
+    let highScore = 0;
+    let scoreText;
+    let highScoreText;
+    let deliveryGuyHealth = 1;
+    let maxDeliveryGuyHealth = 6;
+    let gameStarted = false;
+    let startText;
+    let deliveryGuySpeed = 100;
+    let gameOver = false;
+    let gameOverText;
+    let restartText;
+    let backgroundSprite;
+    let bgFrames = ['bg_frame1', 'bg_frame2', 'bg_frame3', 'bg_frame4'];
+    let ammo = 6;
+    let maxAmmo = 6;
+    let isReloading = false;
+    let ammoBoxes = [];
+    let gameStartTime = 0;
+    let baseSpeed = 100;
+
+    function preload() {
+        this.load.spritesheet('chef_idle', './chef_idle_sprite.png', { frameWidth: 341, frameHeight: 1024 });
+        this.load.spritesheet('chef_throw', './chef_throw_sprite.png', { frameWidth: 341, frameHeight: 1024 });
+        this.load.spritesheet('delivery_run', './delivery_run_sprite.png', { frameWidth: 512, frameHeight: 1024 });
+        this.load.image('bg_frame1', './soho_bg_1.png');
+        this.load.image('bg_frame2', './soho_bg_2.png');
+        this.load.image('bg_frame3', './soho_bg_3.png');
+        this.load.image('bg_frame4', './soho_bg_4.png');
+        this.load.spritesheet('pizza_box', './pizza_sprite.png', { frameWidth: 512, frameHeight: 1024 });
+        this.load.audio('bg_music', ['./pizza_game_bg.mp3']);
+        this.load.audio('hit_sound', ['./hit.mp3']);
     }
 
-    function checkIfLoaded() {
-        // If iframe is still hidden after timeout, retry loading
-        if (iframe.style.display === 'none') {
-            retryLoad();
+    function create() {
+        backgroundSprite = this.add.image(320, 180, 'bg_frame1').setDisplaySize(640, 360);
+
+        // Create flickering animation
+        const flickerBackground = () => {
+            let randomFrame = bgFrames[Math.floor(Math.random() * bgFrames.length)];
+            backgroundSprite.setTexture(randomFrame);
+
+            // Schedule next flicker with random delay
+            this.time.addEvent({
+                delay: 200 + Math.random() * 300,
+                callback: flickerBackground,
+                callbackScope: this
+            });
+        };
+
+        this.time.addEvent({
+            delay: 200 + Math.random() * 300,
+            callback: flickerBackground,
+            callbackScope: this
+        });
+
+        music = this.sound.add('bg_music', { loop: true, volume: 0.5 });
+        music.play();
+
+        // Load highscore from localStorage
+        highScore = parseInt(localStorage.getItem('pizzaGameHighScore')) || 0;
+
+        // Create score display with pixelart style on right side
+        scoreText = this.add.text(640 - 16, 16, 'SCORE: 0', {
+            fontFamily: 'monospace',
+            fontSize: '16px',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(1, 0);
+
+        highScoreText = this.add.text(640 - 16, 40, 'HIGH: ' + highScore, {
+            fontFamily: 'monospace',
+            fontSize: '16px',
+            fill: '#ffff00',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(1, 0);
+
+        this.anims.create({
+            key: 'idle',
+            frames: this.anims.generateFrameNumbers('chef_idle', { start: 0, end: 2 }),
+            frameRate: 6,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: 'throw',
+            frames: this.anims.generateFrameNumbers('chef_throw', { start: 0, end: 2 }),
+            frameRate: 10
+        });
+
+        this.anims.create({
+            key: 'run',
+            frames: this.anims.generateFrameNumbers('delivery_run', { start: 0, end: 2 }),
+            frameRate: 8,
+            repeat: -1
+        });
+
+        chef = this.physics.add.sprite(100, 280, 'chef_idle');
+        chef.setScale(0.214);
+        chef.play('idle');
+
+        deliveryGuy = this.physics.add.sprite(600, 280, 'delivery_run');
+        deliveryGuy.setScale(0.2);
+        deliveryGuy.setFlipX(true);
+        deliveryGuy.play('run');
+        deliveryGuy.setVelocityX(0); // Start paused
+
+        // Create start text
+        startText = this.add.text(320, 180, 'PRESS SPACE TO START', {
+            fontFamily: 'monospace',
+            fontSize: '36px',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5, 0.5);
+
+        pizzaBoxes = this.physics.add.group();
+
+        cursors = this.input.keyboard.createCursorKeys();
+        spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+
+        this.physics.add.overlap(pizzaBoxes, deliveryGuy, hitDeliveryGuy, null, this);
+        this.physics.add.overlap(chef, deliveryGuy, chefHitByDeliveryGuy, null, this);
+
+        // Create ammo boxes GUI using pizza sprites
+        for (let i = 0; i < maxAmmo; i++) {
+            let box = this.add.image(30 + (i * 35), 30, 'pizza_box');
+            box.setScale(0.06);
+            ammoBoxes.push(box);
         }
     }
 
-    function onLoadSuccess() {
-        // Hide the loading message and show the iframe
-        loadingMessage.style.display = 'none';
-        iframe.style.display = 'block';
+    function update() {
+        if (Phaser.Input.Keyboard.JustDown(spaceKey)) {
+            if (gameOver) {
+                // Restart game
+                gameOver = false;
+                gameStarted = false;
+                score = 0;
+                deliveryGuyHealth = 1;
+                scoreText.setText('SCORE: 0');
+                gameOverText.setVisible(false);
+                restartText.setVisible(false);
+                startText.setVisible(true);
+                deliveryGuy.setVelocityX(0);
+                deliveryGuy.x = 600;
+                // Revive chef and delivery guy
+                chef.setVisible(true);
+                deliveryGuy.setVisible(true);
+                chef.clearTint();
+                deliveryGuy.clearTint();
+                // Reset ammo
+                ammo = maxAmmo;
+                isReloading = false;
+                updateAmmoDisplay();
+                // Reset speed progression
+                gameStartTime = 0;
+            } else if (!gameStarted) {
+                // Start the game
+                gameStarted = true;
+                gameStartTime = this.time.now;
+                startText.setVisible(false);
+                deliveryGuy.setVelocityX(-deliveryGuySpeed);
+            } else if (!gameOver) {
+                // Throw pizza or reload
+                if (ammo > 0 && !isReloading) {
+                    chef.play('throw', true);
+                    chef.once('animationcomplete', () => {
+                        chef.play('idle');
+                    });
+                    spawnPizzaBox(this);
+                    ammo--;
+                    updateAmmoDisplay();
+
+                    // Auto-reload when ammo reaches 0
+                    if (ammo === 0) {
+                        isReloading = true;
+                        updateAmmoDisplay();
+                        this.time.delayedCall(1000, () => {
+                            ammo = maxAmmo;
+                            isReloading = false;
+                            updateAmmoDisplay();
+                        }, [], this);
+                    }
+                }
+            }
+        }
+
+        if (gameStarted && !gameOver && deliveryGuy.x < -50) {
+            deliveryGuy.x = 700;
+            // Calculate speed increase over time (doubles in 60 seconds)
+            let timeElapsed = (this.time.now - gameStartTime) / 1000; // seconds
+            let speedMultiplier = 1 + (timeElapsed / 60); // doubles in 60 seconds
+            deliveryGuySpeed = (baseSpeed + Math.random() * 100) * speedMultiplier;
+
+            // Calculate health based on time (1-6 health over 60 seconds)
+            deliveryGuyHealth = Math.min(1 + Math.floor(timeElapsed / 12), maxDeliveryGuyHealth);
+
+            // Scale based on health (0.2 to 0.22 - 10% increase)
+            let healthScale = 0.2 + (deliveryGuyHealth - 1) * 0.004; // 0.004 per health point
+            deliveryGuy.setScale(healthScale);
+
+            // Tint based on health - more distinct colors
+            let healthColors = [0xffffff, 0x00ff00, 0xffff00, 0xff8000, 0xff0080, 0xff0000];
+            deliveryGuy.setTint(healthColors[deliveryGuyHealth - 1]);
+
+            deliveryGuy.setVelocityX(-deliveryGuySpeed);
+        }
     }
 
-    function retryLoad() {
-        retryCount++;
-        if (retryCount <= maxRetries) {
-            console.log(`Retry attempt ${retryCount}...`);
-            setTimeout(loadPDF, retryDelay); // Retry after a delay
+    function spawnPizzaBox(scene) {
+        let box = pizzaBoxes.create(chef.x + 32, chef.y, 'pizza_box', 0);
+        box.setVelocityX(300);
+        box.setScale(0.055);
+        box.setAngularVelocity(360); // Spin the pizza
+    }
+
+    function hitDeliveryGuy(guy, box) {
+        box.destroy();
+        guy.setTint(0xff0000);
+
+        // Play hit sound
+        this.sound.play('hit_sound', { volume: 0.7 });
+
+        // Reduce health
+        deliveryGuyHealth -= 1;
+
+        // Increase score
+        score += 10;
+        scoreText.setText('SCORE: ' + score);
+
+        // Check for new high score
+        if (score > highScore) {
+            highScore = score;
+            highScoreText.setText('HIGH: ' + highScore);
+            localStorage.setItem('pizzaGameHighScore', highScore.toString());
+        }
+
+        this.time.delayedCall(200, () => {
+            guy.clearTint();
+
+            // Only respawn if health reaches 0
+            if (deliveryGuyHealth <= 0) {
+                guy.x = 700;
+                guy.setFlipX(true);
+                // Calculate speed increase over time (doubles in 60 seconds)
+                let timeElapsed = (this.time.now - gameStartTime) / 1000; // seconds
+                let speedMultiplier = 1 + (timeElapsed / 60); // doubles in 60 seconds
+                deliveryGuySpeed = (baseSpeed + Math.random() * 100) * speedMultiplier;
+
+                // Calculate health based on time (1-6 health over 60 seconds)
+                deliveryGuyHealth = Math.min(1 + Math.floor(timeElapsed / 12), maxDeliveryGuyHealth);
+
+                // Scale based on health (0.2 to 0.22 - 10% increase)
+                let healthScale = 0.2 + (deliveryGuyHealth - 1) * 0.004; // 0.004 per health point
+                guy.setScale(healthScale);
+
+                // Tint based on health - more distinct colors
+                let healthColors = [0xffffff, 0x00ff00, 0xffff00, 0xff8000, 0xff0080, 0xff0000];
+                guy.setTint(healthColors[deliveryGuyHealth - 1]);
+
+                guy.setVelocityX(-deliveryGuySpeed);
+            }
+        }, [], this);
+    }
+
+    function chefHitByDeliveryGuy(chef, guy) {
+        // Game over
+        gameOver = true;
+        gameStarted = false;
+
+        // Stop delivery guy
+        guy.setVelocityX(0);
+
+        // Kill chef and delivery guy
+        chef.setTint(0xff0000);
+        guy.setTint(0xff0000);
+        chef.setVisible(false);
+        guy.setVisible(false);
+
+        // Show game over text
+        if (!gameOverText) {
+            gameOverText = this.add.text(320, 140, 'GAME OVER', {
+                fontFamily: 'monospace',
+                fontSize: '48px',
+                fill: '#ff0000',
+                stroke: '#000000',
+                strokeThickness: 4
+            }).setOrigin(0.5, 0.5);
+
+            restartText = this.add.text(320, 220, 'PRESS SPACE TO RESTART', {
+                fontFamily: 'monospace',
+                fontSize: '24px',
+                fill: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5, 0.5);
         } else {
-            loadingMessage.innerText = "Failed to load the menu. Please try again later.";
+            gameOverText.setVisible(true);
+            restartText.setVisible(true);
         }
     }
 
-    // Event handler for load success
-    iframe.onload = onLoadSuccess;
-
-    // Initial load
-    loadPDF();
+    function updateAmmoDisplay() {
+        for (let i = 0; i < maxAmmo; i++) {
+            if (isReloading) {
+                ammoBoxes[i].setAlpha(0.5); // Medium opacity during reload
+                ammoBoxes[i].setTint(0xff0000); // Red tint during reload
+            } else if (i < ammo) {
+                ammoBoxes[i].setAlpha(1); // Full opacity for available ammo
+                ammoBoxes[i].setTint(0xffffff); // White tint for available
+            } else {
+                ammoBoxes[i].setAlpha(0.3); // Low opacity for empty
+                ammoBoxes[i].setTint(0x666666); // Gray tint for empty
+            }
+        }
+    }
 </script>
+
 </body>
 </html>
