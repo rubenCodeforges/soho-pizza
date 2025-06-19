@@ -69,6 +69,7 @@
     let ammoBoxes = [];
     let gameStartTime = 0;
     let baseSpeed = 100;
+    let touchPressed = false;
 
     function preload() {
         this.load.spritesheet('chef_idle', './chef_idle_sprite.png', { frameWidth: 341, frameHeight: 1024 });
@@ -159,9 +160,9 @@
         deliveryGuy.setVelocityX(0); // Start paused
 
         // Create start text
-        startText = this.add.text(320, 180, 'PRESS SPACE TO START', {
+        startText = this.add.text(320, 180, 'PRESS SPACE OR TAP TO START', {
             fontFamily: 'monospace',
-            fontSize: '36px',
+            fontSize: '32px',
             fill: '#ffffff',
             stroke: '#000000',
             strokeThickness: 3
@@ -171,6 +172,9 @@
 
         cursors = this.input.keyboard.createCursorKeys();
         spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        
+        // Add touch/tap support for mobile
+        this.input.on('pointerdown', handleTouchInput, this);
 
         this.physics.add.overlap(pizzaBoxes, deliveryGuy, hitDeliveryGuy, null, this);
         this.physics.add.overlap(chef, deliveryGuy, chefHitByDeliveryGuy, null, this);
@@ -184,7 +188,8 @@
     }
 
     function update() {
-        if (Phaser.Input.Keyboard.JustDown(spaceKey)) {
+        if (Phaser.Input.Keyboard.JustDown(spaceKey) || touchPressed) {
+            touchPressed = false;
             if (gameOver) {
                 // Restart game
                 gameOver = false;
@@ -341,9 +346,9 @@
                 strokeThickness: 4
             }).setOrigin(0.5, 0.5);
 
-            restartText = this.add.text(320, 220, 'PRESS SPACE TO RESTART', {
+            restartText = this.add.text(320, 220, 'PRESS SPACE OR TAP TO RESTART', {
                 fontFamily: 'monospace',
-                fontSize: '24px',
+                fontSize: '20px',
                 fill: '#ffffff',
                 stroke: '#000000',
                 strokeThickness: 2
@@ -367,6 +372,10 @@
                 ammoBoxes[i].setTint(0x666666); // Gray tint for empty
             }
         }
+    }
+    
+    function handleTouchInput() {
+        touchPressed = true;
     }
 </script>
 
